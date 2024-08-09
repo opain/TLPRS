@@ -4,7 +4,7 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
   write.table(cor$V2,file=temp_file,col.names=F,row.names=F,quote=F)
   cmd = paste0("plink-1.9 --bfile ",train_file," --extract ",temp_file,   " --recodeA  --out ", temp_file,"_Geno.txt")
   system(cmd)
-  
+
   Gtemp=try(as.data.frame(fread(paste0(temp_file,"_Geno.txt.raw"),header=T)),silent=T)
   if (file.exists(temp_file)) {file.remove(temp_file)}
   if (file.exists(paste0(temp_file,"_Geno.txt.nosex"))) {file.remove(paste0(temp_file,"_Geno.txt.nosex"))}
@@ -13,11 +13,11 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
 
   if (class(Gtemp)=="try-error"){
     return(NULL)
-    #GG=diag(nrow(cor));colnames(GG)=paste0(cor$V2,"_",cor$V5) 
+    #GG=diag(nrow(cor));colnames(GG)=paste0(cor$V2,"_",cor$V5)
     #geno_info=as.data.frame(t(sapply(colnames(GG),   split_SNPandA1   ) )) ;colnames(geno_info)=c("SNP","A1")
     #geno_info$mean=NA; geno_info$maf=NA; geno_info$sd=NA
   }else{
-    GG=cor(as.matrix(Gtemp[,7:ncol(Gtemp)]))
+    GG=cor(as.matrix(Gtemp[,7:ncol(Gtemp)]), use='p')
     geno_info=as.data.frame(t(sapply(colnames(Gtemp)[7:ncol(Gtemp)],   split_SNPandA1   ) )) ;colnames(geno_info)=c("SNP","A1")
     geno_info$mean=colMeans(as.matrix(Gtemp[,7:ncol(Gtemp)]),na.rm=T); geno_info$maf=geno_info$mean/2; geno_info$sd=sqrt(2*geno_info$maf*(1-geno_info$maf))
 
@@ -59,11 +59,11 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
         }
         beta.all=cbind(beta.all,betatemp)
         k=k+1
-      } 
+      }
     }
     geno_info2=cbind(geno_info2,beta.all)
     return(geno_info2)
-  } 
+  }
 }##function end
 
 
@@ -72,19 +72,19 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
 ##PRStr_calculation2(sum_stats_target, train_file, sum_stats, LDblocks, cluster=cluster,temp.file=paste0(tempfile,"_step1"))
 ##temp.file=paste0(tempfile,"_step1")
 PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, cluster=NULL,temp.file){
-  possible.LDblocks <- c("EUR.hg19", "AFR.hg19", "ASN.hg19", 
-                         "EUR.hg38", "AFR.hg38", "ASN.hg38") 
+  possible.LDblocks <- c("EUR.hg19", "AFR.hg19", "ASN.hg19",
+                         "EUR.hg38", "AFR.hg38", "ASN.hg38")
   if(!is.null(LDblocks)) {
     if(is.character(LDblocks) && length(LDblocks) == 1) {
       if(LDblocks %in% possible.LDblocks) {
         LDblocks <- data.table::fread(system.file(paste0("data/Berisa.",  LDblocks, ".bed"),  package="lassosum"), header=T)
       } else {
-        stop(paste("I cannot recognize this LDblock. Specify one of", 
+        stop(paste("I cannot recognize this LDblock. Specify one of",
                    paste(possible.LDblocks, collapse=", ")))
       }
     }
     if(is.factor(LDblocks)) LDblocks <- as.integer(LDblocks)
-    if(is.vector(LDblocks)) stopifnot(length(LDblocks) == length(cor)) else 
+    if(is.vector(LDblocks)) stopifnot(length(LDblocks) == length(cor)) else
       if(is.data.frame(LDblocks) || is.data.table(LDblocks)) {
         LDblocks <- as.data.frame(LDblocks)
         stopifnot(ncol(LDblocks) == 3)
@@ -92,12 +92,12 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
         LDblocks[,1] <- as.character(sub("^chr", "", LDblocks[,1], ignore.case = T))
       }
   } else {
-    stop(paste0("LDblocks must be specified. Specify one of ", 
-                paste(possible.LDblocks, collapse=", "), 
-                ". Alternatively, give an integer vector defining the blocks, ", 
+    stop(paste0("LDblocks must be specified. Specify one of ",
+                paste(possible.LDblocks, collapse=", "),
+                ". Alternatively, give an integer vector defining the blocks, ",
                 "or a .bed file with three columns read as a data.frame."))
   }
-  
+
   ref.bim <- fread(paste0(train_file, ".bim"))
   ref.bim$V1 <- as.character(sub("^chr", "", ref.bim$V1, ignore.case = T))
   ref.bim$order=1:nrow(ref.bim)
@@ -108,22 +108,22 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
   if (length(flag1)>0){  bim_sum_stats$Beta2[flag1]=bim_sum_stats$Beta[flag1]}
   flag2=which(bim_sum_stats$V6==bim_sum_stats$A1)
   if (length(flag2)>0){  bim_sum_stats$Beta2[flag2]=-bim_sum_stats$Beta[flag2];  bim_sum_stats$cor[flag2]=-bim_sum_stats$cor[flag2];}
-  
+
   bim_sum_stats=bim_sum_stats[which(! is.na(bim_sum_stats$Beta2)),c("V2","V1","V4","V5","V6","order","Beta2","cor")]
-  
-  
+
+
   ref.extract <- rep(FALSE, nrow(ref.bim))
   ref.extract[bim_sum_stats$order] <- TRUE
-  
-  
+
+
   if(!is.null(LDblocks)) {
-      LDblocks2 <- splitgenome2(CHR = ref.bim$V1[ ref.extract], 
+      LDblocks2 <- splitgenome2(CHR = ref.bim$V1[ ref.extract],
                               POS = ref.bim$V4[ ref.extract],
-                              ref.CHR = LDblocks[,1], 
+                              ref.CHR = LDblocks[,1],
                               ref.breaks = LDblocks[,3])
       # Assumes base 1 for the 3rd column of LDblocks (like normal bed files)
-  } 
-  
+  }
+
   if(is.null(cluster)) {
   	results.list <- lapply(unique(LDblocks2[[1]]), function(i) {
     		block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file)
@@ -133,7 +133,7 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
     		block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file)
   	})
   }
-  
+
   results.list<-do.call("rbind", results.list)
 
   return(results.list)
@@ -145,7 +145,7 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
 
 
 
-######################The function used summary statistics for training############### 
+######################The function used summary statistics for training###############
 ##ped_file=ped.file;Covar_name="";Y_name=kword;Ytype="C"; train_file=train.bfile;test_file=test.bfile;sum_stats_file=beta.file;LDblocks="EUR.hg19"
 ##ped.file,"",kword, Ytype="C",train.bfile,test.bfile,beta.file,target_sumstats_file,LDblocks="EUR.hg19",tempfile
 TL_PRS<-function(ped_file,Covar_name,Y_name, Ytype="C",train_file,test_file,sum_stats_file,target_sumstats_file, LDblocks="EUR.hg19",outfile,cluster=NULL){
@@ -154,15 +154,15 @@ TL_PRS<-function(ped_file,Covar_name,Y_name, Ytype="C",train_file,test_file,sum_
 	if (out1!=0){stop(out1)}
 
 	sum_stats=data.frame(fread(sum_stats_file))
-	if (ncol(sum_stats)==3){ 
+	if (ncol(sum_stats)==3){
 		if (sum(colnames(sum_stats) %in% c("V1","V2","V3"))==3){
 			colnames(sum_stats)=c("SNP","A1","Beta")
 		}
-	} 
-	sum_stats=sum_stats[,c("SNP","A1","Beta")] 
+	}
+	sum_stats=sum_stats[,c("SNP","A1","Beta")]
 	sum_stats_file=paste0(tempfile,"_original_sum_stats.txt")
 	write.table(sum_stats, file=sum_stats_file,col.names=F,row.names=F,quote=F)
-	
+
 	ped=data.frame(fread(ped_file,header=T))[,setdiff(c("FID","IID",Covar_name,Y_name),"")]
 
 	##obj=calculate_betaPRS(train_file,sum_stats_file,ped,Covar_name,Y_name,paste0(tempfile,"_step0") ) ##need to remove sum_stats_file and plink command later.
@@ -187,7 +187,7 @@ TL_PRS<-function(ped_file,Covar_name,Y_name, Ytype="C",train_file,test_file,sum_
   	if (file.exists(paste0(tempfile,"_original_sum_stats.txt"))) {file.remove(paste0(tempfile,"_original_sum_stats.txt"))}
   	if (file.exists(paste0(tempfile,"_step0.train.PRS.nosex"))) {file.remove(paste0(tempfile,"_step0.train.PRS.nosex"))}
   	if (file.exists(paste0(tempfile,"_step0.train.PRS.log"))) {file.remove(paste0(tempfile,"_step0.train.PRS.log"))}
-  	if (file.exists(paste0(tempfile,"_step0.train.PRS.profile"))) {file.remove(paste0(tempfile,"_step0.train.PRS.profile"))}  
+  	if (file.exists(paste0(tempfile,"_step0.train.PRS.profile"))) {file.remove(paste0(tempfile,"_step0.train.PRS.profile"))}
 	write.table(out1$best.beta,file=paste0(tempfile,"_best.beta.txt"),row.names=F,quote=F,col.names=T)
 	write.table(out1$best.PRS,file=paste0(tempfile,"_best.PRS.txt"),row.names=F,quote=F,col.names=T)
 
