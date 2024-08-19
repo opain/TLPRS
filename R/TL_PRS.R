@@ -1,8 +1,8 @@
 ##cor=bim_sum_stats[which(LDblocks2[[1]]==i),]; num=which(i==unique(LDblocks2[[1]]));nsnp=nrow(bim_sum_stats)
-block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
+block_calculation2<-function(cor,num,train_file,nsnp,temp.file, plink){
   temp_file=paste0(temp.file,"_block_",num)
   write.table(cor$V2,file=temp_file,col.names=F,row.names=F,quote=F)
-  cmd = paste0("plink-1.9 --bfile ",train_file," --extract ",temp_file,   " --recodeA  --out ", temp_file,"_Geno.txt")
+  cmd = paste0(plink, " --bfile ",train_file," --extract ",temp_file,   " --recodeA  --out ", temp_file,"_Geno.txt")
   system(cmd)
 
   Gtemp=try(as.data.frame(fread(paste0(temp_file,"_Geno.txt.raw"),header=T)),silent=T)
@@ -81,7 +81,7 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
 
 ##PRStr_calculation2(sum_stats_target, train_file, sum_stats, LDblocks, cluster=cluster,temp.file=paste0(tempfile,"_step1"))
 ##temp.file=paste0(tempfile,"_step1")
-PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, cluster=NULL,temp.file){
+PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, cluster=NULL,temp.file, plink='plink-1.9'){
   possible.LDblocks <- c("EUR.hg19", "AFR.hg19", "ASN.hg19",
                          "EUR.hg38", "AFR.hg38", "ASN.hg38")
   if(!is.null(LDblocks)) {
@@ -137,11 +137,11 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
 
   if(is.null(cluster)) {
   	results.list <- lapply(unique(LDblocks2[[1]]), function(i) {
-    		block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file)
+    		block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file, plink=plink)
   	})
   } else {
   	results.list <-  parallel::parLapplyLB(cluster,unique(LDblocks2[[1]]), function(i) {
-    		block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file)
+    		block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file, plink=plink)
   	})
   }
 
