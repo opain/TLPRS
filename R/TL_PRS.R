@@ -135,7 +135,7 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
       # Assumes base 1 for the 3rd column of LDblocks (like normal bed files)
   }
 
-  results.list<-foreach(i = unique(LDblocks2[[1]]), .combine = list, .options.multicore = list(preschedule = FALSE)) %dopar% {
+  results.list<-foreach(i = unique(LDblocks2[[1]]), .options.multicore = list(preschedule = FALSE)) %dopar% {
     block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file, plink=plink)
   }
 
