@@ -18,9 +18,8 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
     #geno_info$mean=NA; geno_info$maf=NA; geno_info$sd=NA
   }else{
     GG=cor(as.matrix(Gtemp[,7:ncol(Gtemp)]), use='p')
-    geno_info=as.data.frame(t(sapply(colnames(Gtemp)[7:ncol(Gtemp)],   split_SNPandA1   ) )) ;colnames(geno_info)=c("SNP","A1")
+    geno_info=as.data.frame(t(sapply(colnames(Gtemp)[7:ncol(Gtemp)], split_SNPandA1   ) )) ;colnames(geno_info)=c("SNP","A1")
     geno_info$mean=colMeans(as.matrix(Gtemp[,7:ncol(Gtemp)]),na.rm=T); geno_info$maf=geno_info$mean/2; geno_info$sd=sqrt(2*geno_info$maf*(1-geno_info$maf))
-
   }
 
   list1=which(geno_info$sd==0)
@@ -31,38 +30,49 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file){
   if (nrow(geno_info)==0){
     return(NULL)
   } else {
+    gene_info3<-NULL
     geno_info$order=1:nrow(geno_info)
-    geno_info2=merge(cor[,c("V2","V5","Beta2","cor")],geno_info, by.x="V2",by.y="SNP",sort=F)
-    flag_nomatch=which(geno_info2$A1 != geno_info2$V5)
-    if (length(flag_nomatch)>0){
-      geno_info2$Beta2[flag_nomatch]=-geno_info2$Beta2[flag_nomatch]
-      geno_info2$cor[flag_nomatch]=-geno_info2$cor[flag_nomatch]
-    }
-    GG2=as.matrix(GG[geno_info2$order,geno_info2$order])
-    gy=geno_info2$cor
-    betatemp=geno_info2$Beta2*geno_info2$sd
-    u0=gy-GG2%*%betatemp
-    beta.all=cbind(u0, betatemp)
-    for (factor1 in c(1,10,100,1000)){
-      k=1
-      betatemp=beta.all[,2]
-      u0=beta.all[,1]
-      while (k<=15){
-        ##betanew=c()
-        learningrate=1/nsnp*factor1
-        if (learningrate>1){learningrate=1}
-        ##print(learningrate)
-        for (j in 1:length(betatemp)){
-          beta_old=betatemp[j]
-          betatemp[j]=(learningrate*u0[j]+beta_old)/ 1
-          u0=u0-GG2[,j]*(betatemp[j]-beta_old)
+    for(i in 1:length(names(cor)[grepl('Beta', names(cor))])){
+      beta_name<-names(cor)[grepl('Beta', names(cor))][i]
+      geno_info2=merge(cor[,c("V2","V5",beta_name,"cor"), with=F],geno_info, by.x="V2",by.y="SNP",sort=F)
+      names(geno_info2)[names(geno_info2) == beta_name]<-'Beta2'
+      flag_nomatch=which(geno_info2$A1 != geno_info2$V5)
+      if (length(flag_nomatch)>0){
+        geno_info2$Beta2[flag_nomatch]=-geno_info2$Beta2[flag_nomatch]
+        geno_info2$cor[flag_nomatch]=-geno_info2$cor[flag_nomatch]
+      }
+      GG2=as.matrix(GG[geno_info2$order,geno_info2$order])
+      gy=geno_info2$cor
+      betatemp=geno_info2$Beta2*geno_info2$sd
+      u0=gy-GG2%*%betatemp
+      beta.all=cbind(u0, betatemp)
+      for (factor1 in c(1,10,100,1000)){
+        k=1
+        betatemp=beta.all[,2]
+        u0=beta.all[,1]
+        while (k<=15){
+          ##betanew=c()
+          learningrate=1/nsnp*factor1
+          if (learningrate>1){learningrate=1}
+          ##print(learningrate)
+          for (j in 1:length(betatemp)){
+            beta_old=betatemp[j]
+            betatemp[j]=(learningrate*u0[j]+beta_old)/ 1
+            u0=u0-GG2[,j]*(betatemp[j]-beta_old)
+          }
+          beta.all=cbind(beta.all,betatemp)
+          k=k+1
         }
-        beta.all=cbind(beta.all,betatemp)
-        k=k+1
+      }
+      beta.all<-beta.all[, -1]
+      colnames(beta.all)<-paste0(beta_name, '_TLPRS_', 1:ncol(beta.all))
+      if(is.null(gene_info3)){
+        gene_info3<-cbind(geno_info2, beta.all)
+      } else {
+        gene_info3<-cbind(gene_info3, beta.all)
       }
     }
-    geno_info2=cbind(geno_info2,beta.all)
-    return(geno_info2)
+    return(gene_info3)
   }
 }##function end
 
@@ -103,18 +113,19 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
   ref.bim$order=1:nrow(ref.bim)
   bim_sum_stats=merge(ref.bim, sum_stats_target,by.x="V2",by.y="SNP",order=F)
   bim_sum_stats=bim_sum_stats[order(bim_sum_stats$order),]
-  bim_sum_stats$Beta2=NA
+
+  betas<-bim_sum_stats[, grepl('Beta', names(bim_sum_stats)), with=F]
+  bim_sum_stats<-bim_sum_stats[, !grepl('Beta', names(bim_sum_stats)), with=F]
+
   flag1=which(bim_sum_stats$V5==bim_sum_stats$A1)
-  if (length(flag1)>0){  bim_sum_stats$Beta2[flag1]=bim_sum_stats$Beta[flag1]}
+  if (length(flag1)>0){  betas[flag1, ] = betas[flag1, ]}
   flag2=which(bim_sum_stats$V6==bim_sum_stats$A1)
-  if (length(flag2)>0){  bim_sum_stats$Beta2[flag2]=-bim_sum_stats$Beta[flag2];  bim_sum_stats$cor[flag2]=-bim_sum_stats$cor[flag2];}
+  if (length(flag2)>0){  betas[flag2, ] = -betas[flag2, ];  bim_sum_stats$cor[flag2] = -bim_sum_stats$cor[flag2];}
 
-  bim_sum_stats=bim_sum_stats[which(! is.na(bim_sum_stats$Beta2)),c("V2","V1","V4","V5","V6","order","Beta2","cor")]
-
+  bim_sum_stats=data.table(cbind(bim_sum_stats[,c("V2","V1","V4","V5","V6","order","cor"), with=F], betas))
 
   ref.extract <- rep(FALSE, nrow(ref.bim))
   ref.extract[bim_sum_stats$order] <- TRUE
-
 
   if(!is.null(LDblocks)) {
       LDblocks2 <- splitgenome2(CHR = ref.bim$V1[ ref.extract],
