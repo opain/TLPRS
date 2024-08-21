@@ -64,7 +64,7 @@ block_calculation2<-function(cor,num,train_file,nsnp,temp.file, plink){
           k=k+1
         }
       }
-      beta.all<-beta.all[, -1]
+      beta.all<-beta.all[, -1, drop = FALSE]
       colnames(beta.all)<-paste0(beta_name, '_TLPRS_', 1:ncol(beta.all))
       if(is.null(gene_info3)){
         gene_info3<-cbind(geno_info2, beta.all)
@@ -135,8 +135,25 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
       # Assumes base 1 for the 3rd column of LDblocks (like normal bed files)
   }
 
-  results.list<-foreach(i = unique(LDblocks2[[1]]), .options.multicore = list(preschedule = FALSE)) %dopar% {
-    block_calculation2(cor=bim_sum_stats[which(LDblocks2[[1]]==i),], num=which(i==unique(LDblocks2[[1]])),train_file=train_file,nsnp=nrow(bim_sum_stats),temp.file, plink=plink)
+  blocks<-unique(LDblocks2[[1]])
+  batch_size<-100
+  results.list <- list()
+  for(batch_start in seq(1, length(blocks), by = batch_size)){
+    batch_indices <- batch_start:min(batch_start + batch_size - 1, length(blocks))
+    current_batch <- blocks[batch_indices]
+
+    batch_results <- foreach(i = current_batch, .options.multicore = list(preschedule = FALSE)) %dopar% {
+      block_calculation2(
+        cor = bim_sum_stats[which(LDblocks2[[1]] == i), ],
+        num = which(i == unique(LDblocks2[[1]])),
+        train_file = train_file,
+        nsnp = nrow(bim_sum_stats),
+        temp.file,
+        plink = plink
+      )
+    }
+
+    results.list <- c(results.list, batch_results)
   }
 
   results.list<-do.call("rbind", results.list)
