@@ -117,10 +117,11 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
   betas<-bim_sum_stats[, grepl('Beta', names(bim_sum_stats)), with=F]
   bim_sum_stats<-bim_sum_stats[, !grepl('Beta', names(bim_sum_stats)), with=F]
 
-  flag1=which(bim_sum_stats$V5==bim_sum_stats$A1)
-  if (length(flag1)>0){  betas[flag1, ] = betas[flag1, ]}
   flag2=which(bim_sum_stats$V6==bim_sum_stats$A1)
-  if (length(flag2)>0){  betas[flag2, ] = -betas[flag2, ];  bim_sum_stats$cor[flag2] = -bim_sum_stats$cor[flag2];}
+  if (length(flag2)>0){
+    betas[flag2, ] = -betas[flag2, ]
+    bim_sum_stats$cor[flag2] = -bim_sum_stats$cor[flag2]
+  }
 
   bim_sum_stats=data.table(cbind(bim_sum_stats[,c("V2","V1","V4","V5","V6","order","cor"), with=F], betas))
 
