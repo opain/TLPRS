@@ -114,7 +114,7 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
   bim_sum_stats=merge(ref.bim, sum_stats_target,by.x="V2",by.y="SNP",order=F)
   bim_sum_stats=bim_sum_stats[order(bim_sum_stats$order),]
 
-  betas<-bim_sum_stats[, grepl('Beta', names(bim_sum_stats)), with=F]
+  betas<-bim_sum_stats[, grepl('Beta', names(bim_sum_stats)), with=F, drop = FALSE]
   bim_sum_stats<-bim_sum_stats[, !grepl('Beta', names(bim_sum_stats)), with=F]
 
   flag2=which(bim_sum_stats$V6==bim_sum_stats$A1)
@@ -153,7 +153,6 @@ PRStr_calculation2<-function(sum_stats_target, train_file, sum_stats, LDblocks, 
         plink = plink
       )
     }
-
     results.list <- c(results.list, batch_results)
   }
 
